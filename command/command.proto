@@ -1,0 +1,103 @@
+syntax = "proto3";
+package command;
+
+option go_package = "github.com/denismitr/lemon-server/command";
+import "google/protobuf/timestamp.proto";
+
+message Tag {
+  string name = 1;
+  oneof value {
+    string str = 2;
+    sint64 int = 3;
+    sfixed64 float = 4;
+    bool bool = 5;
+  }
+};
+
+message UpsertStatement {
+  string key = 1;
+  oneof value {
+    string str = 2;
+    bytes blob = 3;
+    sint64 int = 4;
+    bool bool = 5;
+  }
+  repeated Tag tags = 6;
+  bool preserve_timestamps = 7;
+}
+
+message InsertStatement {
+  string key = 1;
+  oneof value {
+    string str = 2;
+    bytes blob = 3;
+    sint64 int = 4;
+    bool bool = 5;
+  }
+  bool with_timestamps = 7;
+  string content_type = 8;
+}
+
+message BatchUpsertRequest {
+  string database = 1;
+  repeated UpsertStatement stmt = 2;
+  bool timings = 3;
+}
+
+message BatchInsertRequest {
+  repeated InsertStatement stmt = 1;
+  bool timings = 2;
+}
+
+message BatchDeleteByKeyRequest {
+  repeated string keys = 1;
+  bool timings = 2;
+  bool ignore_missing = 3;
+}
+
+message ExecuteResult {
+  int64 documents_affected = 1;
+  string error = 2;
+  double elapsed = 3;
+}
+
+message Document {
+  string key = 1;
+  oneof value {
+    string str = 2;
+    bytes blob = 3;
+    sint64 int = 4;
+    bool bool = 5;
+  }
+  repeated Tag tags = 6;
+  string content_type = 8;
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+}
+
+message MultiGetQueryRequest {
+  repeated string keys = 1;
+  bool timings = 2;
+  bool ignore_missing = 3;
+}
+
+message QueryResult {
+  repeated Document documents = 1;
+  double elapsed = 3;
+}
+
+message Ping {
+  string message = 1;
+}
+
+message Pong {
+  string message = 1;
+}
+
+service Receiver {
+  rpc BatchUpsert(BatchUpsertRequest) returns (ExecuteResult) {}
+  rpc BatchInsert(BatchInsertRequest) returns (ExecuteResult) {}
+  rpc BatchDeleteByKey(BatchDeleteByKeyRequest) returns (ExecuteResult) {}
+  rpc MGet(MultiGetQueryRequest) returns (QueryResult) {}
+  rpc PingPong(Ping) returns (Pong) {}
+}
