@@ -79,7 +79,7 @@ func (c *receiverClient) PingPong(ctx context.Context, in *Ping, opts ...grpc.Ca
 }
 
 // ReceiverServer is the server API for Receiver service.
-// All implementations must embed UnimplementedReceiverServer
+// All implementations should embed UnimplementedReceiverServer
 // for forward compatibility
 type ReceiverServer interface {
 	BatchUpsert(context.Context, *BatchUpsertRequest) (*ExecuteResult, error)
@@ -87,10 +87,9 @@ type ReceiverServer interface {
 	BatchDeleteByKey(context.Context, *BatchDeleteByKeyRequest) (*ExecuteResult, error)
 	MGet(context.Context, *MultiGetQueryRequest) (*QueryResult, error)
 	PingPong(context.Context, *Ping) (*Pong, error)
-	mustEmbedUnimplementedReceiverServer()
 }
 
-// UnimplementedReceiverServer must be embedded to have forward compatible implementations.
+// UnimplementedReceiverServer should be embedded to have forward compatible implementations.
 type UnimplementedReceiverServer struct {
 }
 
@@ -109,7 +108,6 @@ func (UnimplementedReceiverServer) MGet(context.Context, *MultiGetQueryRequest) 
 func (UnimplementedReceiverServer) PingPong(context.Context, *Ping) (*Pong, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PingPong not implemented")
 }
-func (UnimplementedReceiverServer) mustEmbedUnimplementedReceiverServer() {}
 
 // UnsafeReceiverServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to ReceiverServer will
@@ -241,5 +239,5 @@ var Receiver_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "command/command.proto",
+	Metadata: "pkg/command/command.proto",
 }
