@@ -2,9 +2,19 @@ package database
 
 import (
 	"github.com/denismitr/lemon"
+	"github.com/pkg/errors"
 	"path/filepath"
+	"regexp"
+	"strings"
 	"sync"
 	"time"
+)
+
+var ErrInvalidDatabaseName = errors.New("invalid database name")
+
+const (
+	baseDir = "data/" // move to config
+	ext     = ".ldb"
 )
 
 type connection struct {
@@ -32,7 +42,12 @@ func (s *Store) Get(name string) (*lemon.DB, error) {
 		return c.db, nil
 	}
 
-	db, closer, err := lemon.Open(filepath.Join("./data/", name))
+	fullDBPath, err := createFullDBPath(name)
+	if err != nil {
+		return nil, err
+	}
+
+	db, closer, err := lemon.Open(fullDBPath)
 	if err != nil {
 		return nil, err
 	}
@@ -46,4 +61,16 @@ func (s *Store) Get(name string) (*lemon.DB, error) {
 	s.databases[name] = &c
 
 	return db, nil
+}
+
+var validDBNameRegEx = regexp.MustCompile(`^[0-9a-zA-Z_-]{1,120}$`)
+
+func createFullDBPath(name string) (string, error) {
+	if !validDBNameRegEx.MatchString(name) {
+		return "", ErrInvalidDatabaseName
+	}
+
+	name = filepath.Base(name)
+	name = strings.TrimSuffix(name, ext)
+	return "./" + filepath.Join(baseDir, name+ext), nil
 }
