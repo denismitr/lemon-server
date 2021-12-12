@@ -13,7 +13,7 @@ import (
 var ErrInvalidDatabaseName = errors.New("invalid database name")
 
 const (
-	baseDir = "data/" // move to config
+	baseDir = "data" // move to config
 	ext     = ".ldb"
 )
 

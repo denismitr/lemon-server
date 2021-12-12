@@ -1,4 +1,4 @@
-.PHONY: deps proto-gen help
+.PHONY: deps proto-gen help grpc-ui
 
 APP_VERSION := $(shell git rev-parse --short HEAD || echo "GitNotFound")
 
@@ -18,4 +18,10 @@ proto-gen:
 
 run: vars
 	go run cmd/server.go
+
+build-local: vars
+	go build -o cmd/server cmd/server.go
+
+grpc-ui:
+	grpcui -plaintext localhost:3009
 

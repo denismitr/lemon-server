@@ -6,11 +6,10 @@ import "google/protobuf/timestamp.proto";
 
 message Tag {
   string name = 1;
-  uint32 type = 2;
   oneof value {
     string str = 3;
     sint64 int = 4;
-    sfixed64 float = 5;
+    double float = 5;
     bool bool = 6;
   }
 };
@@ -25,6 +24,7 @@ message UpsertStatement {
   }
   repeated Tag tags = 8;
   bool preserve_timestamps = 9;
+  string content_type = 10;
 }
 
 message InsertStatement {
@@ -35,8 +35,9 @@ message InsertStatement {
     sint64 int = 4;
     bool bool = 5;
   }
-  bool with_timestamps = 8;
-  string content_type = 9;
+  repeated Tag tags = 6;
+  bool with_timestamps = 7;
+  string content_type = 8;
 }
 
 message BatchUpsertRequest {
@@ -66,28 +67,24 @@ message ExecuteResult {
 
 message Document {
   string key = 1;
-  oneof value {
-    string str = 2;
-    bytes blob = 3;
-    sint64 int = 4;
-    bool bool = 5;
-  }
-  repeated Tag tags = 6;
-  string type = 8;
-  google.protobuf.Timestamp created_at = 10;
-  google.protobuf.Timestamp updated_at = 11;
+  bytes value = 2;
+  repeated Tag tags = 3;
+  string content_type = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp updated_at = 6;
 }
 
 message MultiGetQueryRequest {
-  repeated string keys = 1;
-  bool timings = 2;
-  bool ignore_missing = 3;
+  string database = 1;
+  repeated string keys = 2;
+  bool timings = 3;
+  bool ignore_missing = 4;
 }
 
 message QueryResult {
-  repeated Document documents = 1;
+  map<string, Document> documents = 1;
   repeated string errors = 2;
-  double elapsed = 3;
+  int64 elapsed = 3;
 }
 
 message Ping {
