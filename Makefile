@@ -10,7 +10,6 @@ help:
 	@grep '^[a-zA-Z]' ./Makefile | awk -F ':.*?## ' 'NF==2 {printf "  %-26s%s\n", $$1, $$2}'
 
 deps:
-	go mod tidy
 	go mod download
 
 proto-gen:

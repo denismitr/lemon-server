@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+
 	"github.com/denismitr/lemon"
 	"github.com/pkg/errors"
 )
@@ -22,14 +23,24 @@ type Insert struct {
 	Tags           []Tag
 }
 
-type BatchInsert []Insert
+type Upsert struct {
+	Key                string
+	Value              interface{}
+	ContentType        string
+	PreserveTimestamps bool
+	Tags               []Tag
+}
 
-type InsertResult struct {
+type BatchInsert []Insert
+type BatchUpsert []Upsert
+
+type ExecResult struct {
 	RowsAffected uint64
 }
 
 type Engine interface {
-	BatchInsert(ctx context.Context, dbName string, bi BatchInsert) (*InsertResult, error)
+	BatchInsert(ctx context.Context, dbName string, bi BatchInsert) (*ExecResult, error)
+	BatchUpsert(ctx context.Context, dbName string, bu BatchUpsert) (*ExecResult, error)
 	MGet(ctx context.Context, database string, keys []string) (map[string]*lemon.Document, error)
 }
 
@@ -44,7 +55,7 @@ func (le *LemonEngine) MGet(ctx context.Context, database string, keys []string)
 	}
 
 	// todo: add MGetContext to LemonDB
-	documentMap, err := db.MGet(keys...)
+	documentMap, err := db.MGetContext(ctx, keys...)
 	if err != nil {
 		return nil, errors.Wrap(ErrEngineFailed, err.Error())
 	}
@@ -58,7 +69,7 @@ func NewEngine(store *Store) Engine {
 	}
 }
 
-func (le *LemonEngine) BatchInsert(ctx context.Context, dbName string, bi BatchInsert) (*InsertResult, error) {
+func (le *LemonEngine) BatchInsert(ctx context.Context, dbName string, bi BatchInsert) (*ExecResult, error) {
 	db, err := le.store.Get(dbName)
 	if err != nil {
 		return nil, err
@@ -94,7 +105,52 @@ func (le *LemonEngine) BatchInsert(ctx context.Context, dbName string, bi BatchI
 		return nil, err
 	}
 
-	return &InsertResult{
+	return &ExecResult{
+		RowsAffected: uint64(len(bi)),
+	}, nil
+}
+
+func (le *LemonEngine) BatchUpsert(ctx context.Context, dbName string, bi BatchUpsert) (*ExecResult, error) {
+	db, err := le.store.Get(dbName)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := db.Update(ctx, func(tx *lemon.Tx) error {
+		for i := range bi {
+			metaAppliers := make([]lemon.MetaApplier, 0, 3)
+
+			ct := lemon.ContentTypeIdentifier(bi[i].ContentType)
+			if ct != "" {
+				metaAppliers = append(metaAppliers, lemon.WithContentType(ct))
+			}
+
+			if bi[i].PreserveTimestamps {
+				metaAppliers = append(metaAppliers, lemon.WithTimestamps())
+			}
+
+			if bi[i].Tags != nil {
+				m := make(lemon.M)
+				for _, tag := range bi[i].Tags {
+					m[tag.Name] = tag.Value
+				}
+				metaAppliers = append(metaAppliers, lemon.WithTags().Map(m))
+			}
+
+			if err := tx.InsertOrReplace(
+				bi[i].Key,
+				bi[i].Value,
+				metaAppliers...,
+			); err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	return &ExecResult{
 		RowsAffected: uint64(len(bi)),
 	}, nil
 }

@@ -20,8 +20,8 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/denismitr/glog v0.2.0 h1:0TmWNxTTWQHHpjdoQ1764oZwRFjiVHWs8Xoo2l0E+bM=
 github.com/denismitr/glog v0.2.0/go.mod h1:UIUsiz0JfFk40Cdgfwgh7/8hI1gXQyh0opNUKseAw1Q=
-github.com/denismitr/lemon v0.8.0 h1:rbgfcIREppNq/F7pcTJeZGvbKlcgNNii4BaabjkSKEs=
-github.com/denismitr/lemon v0.8.0/go.mod h1:F1qXTjFkmG+amSwYBwWpRIUztGbiw/Q8vWyt8+fo8XY=
+github.com/denismitr/lemon v0.9.0 h1:DZcZtQtFl1pRjIYopwbHJxajROykpwhNtLfmVSOytwM=
+github.com/denismitr/lemon v0.9.0/go.mod h1:F1qXTjFkmG+amSwYBwWpRIUztGbiw/Q8vWyt8+fo8XY=
 github.com/envoyproxy/go-control-plane v0.9.0/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
 github.com/envoyproxy/go-control-plane v0.9.1-0.20191026205805-5f8ba28d4473/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
 github.com/envoyproxy/go-control-plane v0.9.4/go.mod h1:6rpuAdCZL397s3pYoYcLgu1mIlRU8Am5FuJP05cCM98=

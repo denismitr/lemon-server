@@ -30,7 +30,26 @@ func (g GrpcHandlers) BatchUpsert(
 	ctx context.Context,
 	request *command.BatchUpsertRequest,
 ) (*command.ExecuteResult, error) {
-	panic("implement")
+	start := time.Now()
+
+	bi, err := database.ConvertGrpcToLemonUpsert(request)
+	if err != nil {
+		grpcErr := createBatchInsertGrpcError(err)
+		g.lg.Error(err)
+		return nil, grpcErr
+	}
+
+	ir, err := g.db.BatchUpsert(ctx, request.Database, bi)
+	if err != nil {
+		// todo: handle key already exists
+		errorStatus := status.New(codes.Internal, err.Error())
+		return nil, errorStatus.Err()
+	}
+
+	return &command.ExecuteResult{
+		DocumentsAffected: ir.RowsAffected,
+		Elapsed:           time.Since(start).Milliseconds(),
+	}, nil
 }
 
 func (g *GrpcHandlers) BatchInsert(

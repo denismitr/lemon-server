@@ -54,6 +54,56 @@ func ConvertGrpcToLemonInsert(request *command.BatchInsertRequest) (BatchInsert,
 	return bi, nil
 }
 
+func ConvertGrpcToLemonUpsert(request *command.BatchUpsertRequest) (BatchUpsert, error) {
+	bi := make(BatchUpsert, len(request.Stmt))
+	for i, stmt := range request.Stmt {
+		bi[i].Key = stmt.Key
+		bi[i].PreserveTimestamps = stmt.PreserveTimestamps
+		bi[i].ContentType = stmt.ContentType
+
+		switch typedValue := stmt.Value.(type) {
+		case *command.UpsertStatement_Blob:
+			bi[i].Value = typedValue.Blob
+		case *command.UpsertStatement_Bool:
+			bi[i].Value = typedValue.Bool
+		case *command.UpsertStatement_Int:
+			bi[i].Value = typedValue.Int
+		case *command.UpsertStatement_Str:
+			bi[i].Value = typedValue.Str
+		default:
+			return nil, errors.Wrapf(ErrInvalidDocumentValue, "value type %T unsupported", typedValue)
+		}
+
+		if stmt.Tags != nil {
+			if err := covertTags(bi, i, stmt); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	return bi, nil
+}
+
+func covertTags(bi BatchUpsert, i int, stmt *command.UpsertStatement) error {
+	bi[i].Tags = make([]Tag, len(stmt.Tags))
+	for j, tag := range stmt.Tags {
+		bi[i].Tags[j].Name = tag.Name
+		switch typedTagValue := tag.Value.(type) {
+		case *command.Tag_Int:
+			bi[i].Tags[j].Value = typedTagValue.Int
+		case *command.Tag_Float:
+			bi[i].Tags[j].Value = typedTagValue.Float
+		case *command.Tag_Str:
+			bi[i].Tags[j].Value = typedTagValue.Str
+		case *command.Tag_Bool:
+			bi[i].Tags[j].Value = typedTagValue.Bool
+		default:
+			return errors.Wrapf(ErrInvalidTagValue, "value type %T unsupported", typedTagValue)
+		}
+	}
+	return nil
+}
+
 func ConvertLemonToGrpcDocument(d *lemon.Document) (*command.Document, error) {
 	var result command.Document
 
