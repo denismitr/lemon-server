@@ -1,0 +1,5 @@
+grpc:
+  enabled: true
+  port: 3099
+  env: "dev"
+  reflection: true

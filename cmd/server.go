@@ -1,59 +1,38 @@
 package main
 
 import (
-	"github.com/denismitr/lemon-server/internal/database"
+	"flag"
+	"github.com/denismitr/lemon-server/internal/server"
 	"github.com/denismitr/lemon-server/internal/server/serverpb"
-	"go.uber.org/zap"
+	"log"
 	"os"
-	"os/signal"
-	"syscall"
 )
 
 var version = "dev"
 
 func main() {
-	lg, err := zap.NewDevelopmentConfig().Build()
+	var cfgFile = flag.String("config", "", "Path to config yaml file")
+	var env = flag.String("env", "dev", "Environment to run server in. Supported values (dev, prod)")
+	flag.Parse()
+
+	serverEnv, err := server.CreateEnvironment(*env)
 	if err != nil {
-		panic(err)
+		log.Fatal(err.Error())
 	}
 
-	lgs := lg.Sugar()
-
-	if err := run(lgs); err != nil {
-		lgs.Error(err)
+	factory := serverpb.NewFactory()
+	factory.WithVersion(version).WithEnvironment(serverEnv)
+	if *cfgFile != "" {
+		factory.WithYamlConfig(*cfgFile)
 	}
 
-	lgs.Info("GRPC server quit")
-}
-
-func run(lg *zap.SugaredLogger) error {
-	s := database.NewStore()
-	db := database.NewEngine(s)
-
-	grpcHandlers := serverpb.NewHandlers(lg, db)
-	grpcServer := serverpb.New(serverpb.Config{
-		Port:       "3009",
-		Version:    version,
-		Reflection: true,
-	}, lg, grpcHandlers)
-
-	errCh := make(chan error)
-	go func() {
-		if err := grpcServer.Start(); err != nil {
-			lg.Error(err)
-			errCh <- err
-		} else {
-			close(errCh)
-		}
-	}()
+	srv, err := factory.BuildGrpcServer()
+	if err != nil {
+		log.Fatal(err.Error())
+	}
 
 	signalCh := make(chan os.Signal, 1)
-	go func() {
-		<-signalCh
-		grpcServer.Shutdown()
-	}()
-
-	signal.Notify(signalCh, syscall.SIGINT, syscall.SIGTERM)
-
-	return <-errCh
+	if err := srv.RunUntilSigterm(signalCh); err != nil {
+		log.Fatal(err.Error())
+	}
 }
