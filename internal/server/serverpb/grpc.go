@@ -2,6 +2,7 @@ package serverpb
 
 import (
 	"context"
+	"fmt"
 	"github.com/denismitr/lemon-server/internal/server"
 	"github.com/denismitr/lemon-server/pkg/command"
 	"github.com/pkg/errors"
@@ -16,15 +17,15 @@ import (
 
 type GrpcServer struct {
 	env      server.Environment
-	cfg      server.GrpcConfig
+	cfg      *server.Config
 	receiver *GrpcHandlers
 	lg       *zap.SugaredLogger
-	shutdown chan os.Signal
+	stopCh   chan struct{}
 }
 
 func New(
 	env server.Environment,
-	cfg server.GrpcConfig,
+	cfg *server.Config,
 	lg *zap.SugaredLogger,
 	receiver *GrpcHandlers,
 ) *GrpcServer {
@@ -33,11 +34,13 @@ func New(
 		cfg:      cfg,
 		lg:       lg,
 		receiver: receiver,
-		shutdown: make(chan os.Signal),
+		stopCh:   make(chan struct{}),
 	}
 }
 
-func (srv *GrpcServer) RunUntilSigterm(signalCh chan os.Signal) error {
+func (srv *GrpcServer) RunUntilTerminated() error {
+	signalCh := make(chan os.Signal)
+
 	errCh := make(chan error)
 	go func() {
 		if err := srv.Start(); err != nil {
@@ -53,7 +56,7 @@ func (srv *GrpcServer) RunUntilSigterm(signalCh chan os.Signal) error {
 		srv.Shutdown()
 	}()
 
-	signal.Notify(signalCh, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(signalCh, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
 	return <-errCh
 }
@@ -64,11 +67,11 @@ func (srv *GrpcServer) Start() error {
 	grpcSrv := grpc.NewServer(grpc.UnaryInterceptor(i))
 	command.RegisterReceiverServer(grpcSrv, srv.receiver)
 
-	if srv.cfg.Reflection {
+	if srv.cfg.Grpc.Reflection {
 		reflection.Register(grpcSrv)
 	}
 
-	listener, err := net.Listen("tcp", ":"+srv.cfg.Port)
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", srv.cfg.Grpc.Port))
 	if err != nil {
 		return err
 	}
@@ -77,21 +80,21 @@ func (srv *GrpcServer) Start() error {
 
 	go func() {
 		srv.lg.Debugf(
-			"Starting LemonDB GRPC server version '%s' on port :%s in '%s' environment",
-			srv.cfg.Version, srv.cfg.Port, srv.env,
+			"Starting LemonDB GRPC server: build %s, API version '%s', port :%d in '%s' environment",
+			srv.cfg.Version.Build, srv.cfg.Grpc.Version, srv.cfg.Grpc.Port, srv.env,
 		)
 
 		if err := grpcSrv.Serve(listener); err != nil {
 			fatalErrCh <- err
 		}
 
-		srv.lg.Debugf("Stopping LemonDB GRPC server on port :%s", srv.cfg.Port)
+		srv.lg.Debugf("Stopping LemonDB GRPC server on port :%d", srv.cfg.Grpc.Port)
 	}()
 
 	for {
 		select {
-		case <-srv.shutdown:
-			grpcSrv.Stop()
+		case <-srv.stopCh:
+			grpcSrv.GracefulStop()
 			return nil
 		case err := <-fatalErrCh:
 			if err == nil {
@@ -104,7 +107,7 @@ func (srv *GrpcServer) Start() error {
 }
 
 func (srv *GrpcServer) Shutdown() {
-	srv.shutdown <- syscall.SIGTERM
+	close(srv.stopCh)
 }
 
 func createRequestLoggerInterceptor(lg *zap.SugaredLogger) grpc.UnaryServerInterceptor {

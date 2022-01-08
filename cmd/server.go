@@ -5,14 +5,15 @@ import (
 	"github.com/denismitr/lemon-server/internal/server"
 	"github.com/denismitr/lemon-server/internal/server/serverpb"
 	"log"
-	"os"
 )
 
-var version = "dev"
+var build = "dev"
 
 func main() {
-	var cfgFile = flag.String("config", "", "Path to config yaml file")
-	var env = flag.String("env", "dev", "Environment to run server in. Supported values (dev, prod)")
+	var yamlFile = flag.String("yaml-config", "", "Path to config yaml file")
+	var env = flag.String("environment", "dev", "Environment to run server in. Supported values (dev, prod, test)")
+	var dotenvFile = flag.String("dotenv", "", "Path to .env file")
+
 	flag.Parse()
 
 	serverEnv, err := server.CreateEnvironment(*env)
@@ -21,9 +22,14 @@ func main() {
 	}
 
 	factory := serverpb.NewFactory()
-	factory.WithVersion(version).WithEnvironment(serverEnv)
-	if *cfgFile != "" {
-		factory.WithYamlConfig(*cfgFile)
+	factory.WithBuildVersion(build).WithEnvironment(serverEnv)
+
+	if *yamlFile != "" {
+		factory.WithYamlConfig(*yamlFile)
+	} else if *dotenvFile != "" {
+		factory.WithDotEnv(*dotenvFile)
+	} else {
+		log.Fatal("Configuration must be provided via --yaml-config or --dotenv")
 	}
 
 	srv, err := factory.BuildGrpcServer()
@@ -31,8 +37,7 @@ func main() {
 		log.Fatal(err.Error())
 	}
 
-	signalCh := make(chan os.Signal, 1)
-	if err := srv.RunUntilSigterm(signalCh); err != nil {
+	if err := srv.RunUntilTerminated(); err != nil {
 		log.Fatal(err.Error())
 	}
 }

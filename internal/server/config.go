@@ -1,11 +1,15 @@
 package server
 
 import (
+	"github.com/ardanlabs/conf/v2"
+	"github.com/ardanlabs/conf/v2/yaml"
+	"github.com/joho/godotenv"
 	"github.com/pkg/errors"
-	"gopkg.in/yaml.v3"
 	"os"
 	"path/filepath"
 )
+
+var ErrHelpRequested = errors.New("help requested")
 
 type Environment string
 
@@ -29,19 +33,53 @@ func CreateEnvironment(env string) (Environment, error) {
 }
 
 type Config struct {
-	Grpc GrpcConfig `yaml:"grpc"`
+	conf.Version
+	Environment Environment `conf:"-" yaml:"-"`
+	Grpc        GrpcConfig  `yaml:"grpc"`
 }
 
 type GrpcConfig struct {
-	Enabled    bool   `yaml:"enabled"`
-	Port       string `yaml:"port"`
-	Reflection bool   `yaml:"reflection"`
-	Version    string `yaml:"-"`
+	Enabled    bool   `conf:"default:true,env:GRPC_ENABLED" yaml:"enabled"`
+	Port       int    `conf:"default:3099,env:GRPC_PORT" yaml:"port"`
+	Reflection bool   `conf:"default:true,env:GRPC_REFLECTION_ENABLED" yaml:"reflection_enabled"`
+	Version    string `conf:"default:1,env:GRPC_VERSION" yaml:"version"`
 }
 
 // todo: add validation for GrpcConfig
 
-func NewConfigFromYaml(path string) (*Config, error) {
+func NewConfig(env Environment, buildVersion string, yamlPath, dotenvPath string) (*Config, error) {
+	if dotenvPath != "" {
+		if err := godotenv.Load(); err != nil {
+			return nil, errors.Wrapf(err, "could not load .env file %s", dotenvPath)
+		}
+	}
+
+	cfg := Config{
+		Version: conf.Version{
+			Build: buildVersion,
+		},
+		Environment: env,
+	}
+
+	var parsers []conf.Parsers
+	if yamlPath != "" {
+		yamlData, err := readYamlFile(yamlPath)
+		if err != nil {
+			return nil, err
+		}
+
+		parsers = append(parsers, yaml.WithData(yamlData))
+	}
+
+	_, err := conf.Parse("", &cfg, parsers...)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not process config")
+	}
+
+	return &cfg, nil
+}
+
+func readYamlFile(path string) ([]byte, error) {
 	absPath, err := filepath.Abs(path)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not get absolute path from %s", path)
@@ -52,10 +90,5 @@ func NewConfigFromYaml(path string) (*Config, error) {
 		return nil, errors.Wrapf(err, "could not read config file %s", absPath)
 	}
 
-	var cfg Config
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		return nil, errors.Wrapf(err, "could not parse yaml in %s", absPath)
-	}
-
-	return &cfg, nil
+	return data, nil
 }

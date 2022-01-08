@@ -78,7 +78,10 @@ func (g *GrpcHandlers) BatchInsert(
 	}, nil
 }
 
-func (g GrpcHandlers) BatchDeleteByKey(ctx context.Context, request *command.BatchDeleteByKeyRequest) (*command.ExecuteResult, error) {
+func (g GrpcHandlers) BatchDeleteByKey(
+	ctx context.Context,
+	request *command.BatchDeleteByKeyRequest,
+) (*command.ExecuteResult, error) {
 	panic("implement me")
 }
 

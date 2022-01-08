@@ -11,18 +11,17 @@ import (
 
 var ErrDisabled = errors.New("grpc server is disabled in configuration")
 
-const DefaultPort = "3099"
-
 type Factory struct {
 	yamlConfigPath string
+	dotenvPath     string
 	env            server.Environment
-	version        string
+	build          string
 }
 
 func NewFactory() *Factory {
 	return &Factory{
-		env:     server.Dev,
-		version: "dev",
+		env:   server.Dev,
+		build: "dev",
 	}
 }
 
@@ -31,13 +30,18 @@ func (f *Factory) WithYamlConfig(path string) *Factory {
 	return f
 }
 
+func (f *Factory) WithDotEnv(path string) *Factory {
+	f.dotenvPath = path
+	return f
+}
+
 func (f *Factory) WithEnvironment(env server.Environment) *Factory {
 	f.env = env
 	return f
 }
 
-func (f *Factory) WithVersion(version string) *Factory {
-	f.version = version
+func (f *Factory) WithBuildVersion(build string) *Factory {
+	f.build = build
 	return f
 }
 
@@ -57,22 +61,12 @@ func (f *Factory) BuildGrpcServer() (*GrpcServer, error) {
 		}
 	}
 
-	var grpcCfg = server.GrpcConfig{
-		Enabled:    true,
-		Port:       DefaultPort,
-		Reflection: f.env == server.Dev,
+	cfg, err := server.NewConfig(f.env, f.build, f.yamlConfigPath, f.dotenvPath)
+	if err != nil {
+		return nil, err
 	}
 
-	if f.yamlConfigPath != "" {
-		if cfg, err := server.NewConfigFromYaml(f.yamlConfigPath); err != nil {
-			return nil, err
-		} else {
-			grpcCfg = cfg.Grpc
-			grpcCfg.Version = f.version
-		}
-	}
-
-	if !grpcCfg.Enabled {
+	if !cfg.Grpc.Enabled {
 		return nil, ErrDisabled
 	}
 
@@ -80,5 +74,5 @@ func (f *Factory) BuildGrpcServer() (*GrpcServer, error) {
 	db := database.NewEngine(s)
 
 	grpcHandlers := NewHandlers(slg, db)
-	return New(f.env, grpcCfg, slg, grpcHandlers), nil
+	return New(f.env, cfg, slg, grpcHandlers), nil
 }
