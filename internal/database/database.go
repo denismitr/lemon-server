@@ -3,6 +3,8 @@ package database
 import (
 	"context"
 
+	"go.uber.org/zap"
+
 	"github.com/denismitr/lemon"
 	"github.com/pkg/errors"
 )
@@ -33,6 +35,7 @@ type Upsert struct {
 
 type BatchInsert []Insert
 type BatchUpsert []Upsert
+type BatchDeleteByKey []string
 
 type ExecResult struct {
 	RowsAffected uint64
@@ -41,11 +44,22 @@ type ExecResult struct {
 type Engine interface {
 	BatchInsert(ctx context.Context, dbName string, bi BatchInsert) (*ExecResult, error)
 	BatchUpsert(ctx context.Context, dbName string, bu BatchUpsert) (*ExecResult, error)
+	BatchDeleteByKey(ctx context.Context, dbName string, keys BatchDeleteByKey) (*ExecResult, error)
 	MGet(ctx context.Context, database string, keys []string) (map[string]*lemon.Document, error)
 }
 
+// LemonEngine wraps and manages the database store
 type LemonEngine struct {
 	store *Store
+	lg    *zap.SugaredLogger
+}
+
+// NewEngine - creates a new LemonEngine
+func NewEngine(store *Store, lg *zap.SugaredLogger) *LemonEngine {
+	return &LemonEngine{
+		store: store,
+		lg:    lg,
+	}
 }
 
 func (le *LemonEngine) MGet(ctx context.Context, database string, keys []string) (map[string]*lemon.Document, error) {
@@ -61,12 +75,6 @@ func (le *LemonEngine) MGet(ctx context.Context, database string, keys []string)
 	}
 
 	return documentMap, nil
-}
-
-func NewEngine(store *Store) Engine {
-	return &LemonEngine{
-		store: store,
-	}
 }
 
 func (le *LemonEngine) BatchInsert(ctx context.Context, dbName string, bi BatchInsert) (*ExecResult, error) {
@@ -107,6 +115,41 @@ func (le *LemonEngine) BatchInsert(ctx context.Context, dbName string, bi BatchI
 
 	return &ExecResult{
 		RowsAffected: uint64(len(bi)),
+	}, nil
+}
+
+func (le *LemonEngine) BatchDeleteByKey(
+	ctx context.Context,
+	dbName string,
+	keys BatchDeleteByKey,
+) (*ExecResult, error) {
+	db, err := le.store.Get(dbName)
+	if err != nil {
+		return nil, err
+	}
+
+	deleted := 0
+	if err := db.Update(ctx, func(tx *lemon.Tx) error {
+		for _, k := range keys {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+
+			if err := tx.Remove(k); err != nil {
+				le.lg.Infof("could not find key '%s' to remove from database '%s'", k, dbName)
+				continue
+			} else {
+				deleted++
+			}
+		}
+
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	return &ExecResult{
+		RowsAffected: uint64(deleted),
 	}, nil
 }
 

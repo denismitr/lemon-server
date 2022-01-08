@@ -10,6 +10,8 @@ import (
 var ErrInvalidInput = errors.New("invalid user input")
 var ErrInvalidDocumentValue = errors.New("invalid document value")
 var ErrInvalidTagValue = errors.New("invalid tag value")
+var ErrEmptyInput = errors.New("empty input")
+var ErrInvalidKey = errors.New("invalid lemon DB key")
 
 func ConvertGrpcToLemonInsert(request *command.BatchInsertRequest) (BatchInsert, error) {
 	bi := make(BatchInsert, len(request.Stmt))
@@ -52,6 +54,31 @@ func ConvertGrpcToLemonInsert(request *command.BatchInsertRequest) (BatchInsert,
 	}
 
 	return bi, nil
+}
+
+func ConvertGrpcToLemonBatchDeleteByKey(req *command.BatchDeleteByKeyRequest) (BatchDeleteByKey, error) {
+	if len(req.Keys) == 0 {
+		return nil, errors.Wrap(ErrEmptyInput, "at least one key must be given")
+	}
+
+	seen := make(map[string]bool, len(req.Keys))
+	batch := make(BatchDeleteByKey, 0, len(req.Keys))
+
+	for _, k := range req.Keys {
+		if len(k) == 0 || len(k) > 255 {
+			return nil, errors.Wrap(ErrInvalidKey, "key may not be empty and may not be over 255 characters")
+		}
+
+		if _, ok := seen[k]; ok {
+			// just ignore duplicates
+			continue
+		}
+
+		batch = append(batch, k)
+		seen[k] = true
+	}
+
+	return batch, nil
 }
 
 func ConvertGrpcToLemonUpsert(request *command.BatchUpsertRequest) (BatchUpsert, error) {

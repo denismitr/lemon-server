@@ -43,3 +43,39 @@ func createBatchInsertGrpcError(err error) error {
 
 	return err
 }
+
+func createBatchDeleteByKeyGrpcError(err error) error {
+	if errors.Is(err, database.ErrInvalidKey) {
+		errorStatus := status.New(codes.InvalidArgument, "invalid lemon DB key")
+		ds, err := errorStatus.WithDetails(
+			&errdetails.BadRequest_FieldViolation{
+				Field:       "Keys",
+				Description: err.Error(),
+			},
+		)
+
+		if err != nil {
+			return errorStatus.Err()
+		}
+
+		return ds.Err()
+	}
+
+	if errors.Is(err, database.ErrEmptyInput) {
+		errorStatus := status.New(codes.InvalidArgument, "empty request")
+		ds, err := errorStatus.WithDetails(
+			&errdetails.BadRequest_FieldViolation{
+				Field:       "Keys",
+				Description: err.Error(),
+			},
+		)
+
+		if err != nil {
+			return errorStatus.Err()
+		}
+
+		return ds.Err()
+	}
+
+	return err
+}

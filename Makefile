@@ -25,5 +25,5 @@ build-local: vars
 	go build -o cmd/server cmd/server.go
 
 grpc-ui:
-	grpcui -plaintext localhost:3009
+	grpcui -plaintext localhost:3099
 

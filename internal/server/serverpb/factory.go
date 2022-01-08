@@ -71,7 +71,7 @@ func (f *Factory) BuildGrpcServer() (*GrpcServer, error) {
 	}
 
 	s := database.NewStore()
-	db := database.NewEngine(s)
+	db := database.NewEngine(s, slg)
 
 	grpcHandlers := NewHandlers(slg, db)
 	return New(f.env, cfg, slg, grpcHandlers), nil

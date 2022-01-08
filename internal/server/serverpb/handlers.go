@@ -78,13 +78,34 @@ func (g *GrpcHandlers) BatchInsert(
 	}, nil
 }
 
+// BatchDeleteByKey - deletes all documents with given keys, duplicates are ignored
 func (g GrpcHandlers) BatchDeleteByKey(
 	ctx context.Context,
 	request *command.BatchDeleteByKeyRequest,
 ) (*command.ExecuteResult, error) {
-	panic("implement me")
+	start := time.Now()
+
+	keys, err := database.ConvertGrpcToLemonBatchDeleteByKey(request)
+	if err != nil {
+		grpcErr := createBatchDeleteByKeyGrpcError(err)
+		g.lg.Error(err)
+		return nil, grpcErr
+	}
+
+	dr, err := g.db.BatchDeleteByKey(ctx, request.Database, keys)
+	if err != nil {
+		// todo: handle key already exists
+		errorStatus := status.New(codes.Internal, err.Error())
+		return nil, errorStatus.Err()
+	}
+
+	return &command.ExecuteResult{
+		DocumentsAffected: dr.RowsAffected,
+		Elapsed:           time.Since(start).Milliseconds(),
+	}, nil
 }
 
+// MGet - multi get by keys
 func (g *GrpcHandlers) MGet(
 	ctx context.Context,
 	request *command.MultiGetQueryRequest,
